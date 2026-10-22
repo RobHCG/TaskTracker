@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="EndToEnd.Tests/EndToEnd.Tests.csproj" Id="8fb43f46-1b4b-4148-9ef1-288d30b19361" />
+  <Project Path="services/notifications/Notifications.Api/Notifications.Api.csproj" />
+  <Project Path="services/notifications/Notifications.Tests/Notifications.Tests.csproj" />
+  <Project Path="services/tasks/Tasks.Api/Tasks.Api.csproj" />
+  <Project Path="services/tasks/Tasks.Tests/Tasks.Tests.csproj" />
+</Solution>

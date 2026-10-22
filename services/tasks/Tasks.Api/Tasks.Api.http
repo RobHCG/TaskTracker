@@ -1,0 +1,32 @@
+@Tasks.Api_HostAddress = http://localhost:5019
+
+### List all tasks
+GET {{Tasks.Api_HostAddress}}/api/tasks
+
+### Create a task
+POST {{Tasks.Api_HostAddress}}/api/tasks
+Content-Type: application/json
+
+{
+  "title": "Write the README",
+  "description": "Finish the tasks API"
+}
+
+### Get one task
+GET {{Tasks.Api_HostAddress}}/api/tasks/1
+
+### Update a task
+PUT {{Tasks.Api_HostAddress}}/api/tasks/1
+Content-Type: application/json
+
+{
+  "title": "Write the README",
+  "description": "Finish the tasks API",
+  "isComplete": true
+}
+
+### Delete a task
+DELETE {{Tasks.Api_HostAddress}}/api/tasks/1
+
+### A task that doesn't exist
+GET {{Tasks.Api_HostAddress}}/api/tasks/999

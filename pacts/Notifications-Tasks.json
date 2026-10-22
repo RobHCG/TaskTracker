@@ -1,0 +1,72 @@
+{
+  "consumer": {
+    "name": "Notifications"
+  },
+  "interactions": [
+    {
+      "contents": {
+        "content": {
+          "completedAt": "2026-10-13T13:02:37.5199989Z",
+          "eventId": "8bd95168-5139-4a6e-8574-6c3d064d9d64",
+          "taskId": 3,
+          "title": "Caught by the queue"
+        },
+        "contentType": "application/json",
+        "encoded": false
+      },
+      "description": "a task completed event",
+      "matchingRules": {
+        "body": {
+          "$.completedAt": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+              }
+            ]
+          },
+          "$.eventId": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "regex",
+                "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              }
+            ]
+          },
+          "$.taskId": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "integer"
+              }
+            ]
+          },
+          "$.title": {
+            "combine": "AND",
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          }
+        }
+      },
+      "pending": false,
+      "type": "Asynchronous/Messages"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.27",
+      "models": "1.2.8"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "Tasks"
+  }
+}

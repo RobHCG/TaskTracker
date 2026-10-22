@@ -1,0 +1,55 @@
+name: tasktracker
+
+services:
+  tasks-api:
+    build:
+      context: .
+      dockerfile: services/tasks/Tasks.Api/Dockerfile
+    ports:
+      - "5080:8080"
+    environment:
+      Database__MigrateOnStartup: "true"
+      ConnectionStrings__TasksDb: "Data Source=/app/data/tasks.db"
+      RabbitMq__HostName: rabbitmq
+    volumes:
+      - tasks-data:/app/data
+    depends_on:
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: tasks
+      RABBITMQ_DEFAULT_PASS: tasks
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      
+  notifications-api:
+    build:
+      context: .
+      dockerfile: services/notifications/Notifications.Api/Dockerfile
+    ports:
+      - "5090:8080"
+    environment:
+      Database__MigrateOnStartup: "true"
+      ConnectionStrings__NotificationsDb: "Data Source=/app/data/notifications.db"
+      RabbitMq__HostName: rabbitmq
+    volumes:
+      - notifications-data:/app/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  tasks-data:
+  rabbitmq-data:
+  notifications-data:
