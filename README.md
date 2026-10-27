@@ -100,20 +100,28 @@ As environment variables, replace `:` with `__`, for example `Database__MigrateO
 
 ## Using the API
 
-All examples use `curl` against a local `dotnet run` instance on port 5019. With Docker Compose, use port 5080 instead. Responses below are real output, formatted for readability. More example requests are in [`Tasks.Api.http`](services/tasks/Tasks.Api/Tasks.Api.http).
+All examples use the Docker Compose port, `http://localhost:5080`. If you're running the Tasks service with `dotnet run` instead, use port 5019. Responses below are real output, formatted for readability. More example requests are in [`Tasks.Api.http`](services/tasks/Tasks.Api/Tasks.Api.http), which is set up for `dotnet run` (port 5019).
+
+The `curl` examples are written for **bash** (macOS, Linux, or Git Bash on Windows). In **PowerShell**, the one-line examples work as they are (in Windows PowerShell 5.1, type `curl.exe` instead of `curl`). The examples that send JSON have a PowerShell version underneath them.
 
 ### Create a task
 
 ```bash
-curl -i -X POST http://localhost:5019/api/tasks \
+curl -i -X POST http://localhost:5080/api/tasks \
   -H "Content-Type: application/json" \
   -d '{"title":"Write the README","description":"Cover setup, endpoints and design decisions"}'
+```
+
+In PowerShell:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:5080/api/tasks -ContentType 'application/json' -Body '{"title":"Write the README","description":"Cover setup, endpoints and design decisions"}' | ConvertTo-Json
 ```
 
 `201 Created`, with a `Location` header pointing at the new task:
 
 ```http
-Location: http://localhost:5019/api/tasks/1
+Location: http://localhost:5080/api/tasks/1
 ```
 ```json
 {
@@ -130,7 +138,7 @@ Location: http://localhost:5019/api/tasks/1
 ### List all tasks
 
 ```bash
-curl http://localhost:5019/api/tasks
+curl http://localhost:5080/api/tasks
 ```
 
 `200 OK`:
@@ -150,7 +158,7 @@ curl http://localhost:5019/api/tasks
 ### Get one task
 
 ```bash
-curl http://localhost:5019/api/tasks/1
+curl http://localhost:5080/api/tasks/1
 ```
 
 `200 OK` with the task, or `404 Not Found` if it doesn't exist.
@@ -160,9 +168,15 @@ curl http://localhost:5019/api/tasks/1
 `PUT` replaces the task's editable fields, so send all of them:
 
 ```bash
-curl -X PUT http://localhost:5019/api/tasks/1 \
+curl -X PUT http://localhost:5080/api/tasks/1 \
   -H "Content-Type: application/json" \
   -d '{"title":"Write the README","description":"Cover setup, endpoints and design decisions","isComplete":true}'
+```
+
+In PowerShell:
+
+```powershell
+Invoke-RestMethod -Method Put -Uri http://localhost:5080/api/tasks/1 -ContentType 'application/json' -Body '{"title":"Write the README","description":"Cover setup, endpoints and design decisions","isComplete":true}' | ConvertTo-Json
 ```
 
 `200 OK`:
@@ -182,7 +196,7 @@ When this changes a task from not complete to complete, the API records a `TaskC
 ### Delete a task
 
 ```bash
-curl -i -X DELETE http://localhost:5019/api/tasks/1
+curl -i -X DELETE http://localhost:5080/api/tasks/1
 ```
 
 `204 No Content`, with an empty body.
@@ -203,9 +217,15 @@ A task that doesn't exist returns `404 Not Found`:
 Invalid input returns `400 Bad Request`, listing each problem by field:
 
 ```bash
-curl -X POST http://localhost:5019/api/tasks \
+curl -X POST http://localhost:5080/api/tasks \
   -H "Content-Type: application/json" \
   -d '{"title":""}'
+```
+
+In PowerShell 7 (`-SkipHttpErrorCheck` shows the error body instead of throwing an exception):
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:5080/api/tasks -ContentType 'application/json' -Body '{"title":""}' -SkipHttpErrorCheck | ConvertTo-Json
 ```
 ```json
 {
@@ -220,6 +240,8 @@ curl -X POST http://localhost:5019/api/tasks \
 ```
 
 ## Events
+
+An **event** records something that has happened. There's one so far, `TaskCompleted`. On its way through RabbitMQ, an event travels as a **message**: the event as a JSON body, plus RabbitMQ properties such as `message_id`.
 
 When a task changes from not complete to complete, the Tasks service publishes `TaskCompleted` to the durable topic exchange `tasks` with routing key `task.completed`. It does not publish when an already-complete task is updated or when a task is reopened. Completing a reopened task again publishes a new event with a new `eventId`.
 
@@ -240,11 +262,11 @@ The Tasks service creates the exchange but no queues. Each consumer creates and 
 
 ### The outbox
 
-The Tasks service never publishes during a request. When a task is completed, it saves the task and an `OutboxMessages` row in the **same** database save, so either both are saved or neither is. A background worker checks the table every second, publishes each unsent row (oldest first), and records `SentAt`.
+The Tasks service never publishes during a request. When a task is completed, it saves the task and the `TaskCompleted` event to the outbox (the `OutboxMessages` table) in the **same** database save, so either both are saved or neither is. A background worker in the Tasks service checks the outbox every second, publishes each unsent event (oldest first), and records when it was sent (`SentAt`).
 
-If RabbitMQ is down, the request still succeeds and the row waits. The worker logs a warning on each attempt and sends the row once the broker is back. Checked by stopping RabbitMQ in Compose: a task completed during the outage was notified about two minutes later, when the broker returned, with its original `completedAt`.
+If RabbitMQ is down, the request still succeeds and the event waits in the outbox. The worker logs a warning on each attempt and sends the event once the broker is back. Checked by stopping RabbitMQ in Compose: a task completed during the outage was notified about two minutes later, when the broker returned, with its original `completedAt`.
 
-A row can occasionally be published twice (for example, if the app stops between publishing and saving `SentAt`). It carries the same `eventId` both times, so Notifications ignores the duplicate.
+An event can occasionally be published twice (for example, if the app stops between publishing it and saving `SentAt`). It carries the same `eventId` both times, so Notifications ignores the duplicate.
 
 Notifications creates:
 
@@ -425,8 +447,8 @@ Over the whole system, a single **end-to-end test** runs the real flow through t
 - Return response DTOs instead of the `TaskItem` entity, so the API contract can't change by accident when the database model does
 - Pagination on `GET /api/tasks`
 - Authentication
-- Delete sent outbox rows after a while, so the table doesn't grow forever
-- Lock outbox rows before running several Tasks service instances, so two workers don't send the same message (Notifications would ignore the duplicate, but it's wasted work)
+- Delete sent events from the outbox after a while, so the table doesn't grow forever
+- Lock events in the outbox while sending them, before running several Tasks service instances, so two workers don't send the same event (Notifications would ignore the duplicate, but it's wasted work)
 - Quieten EF's query logging: the outbox check logs a query every second
 - Retries with back-off for temporary failures, before a message is dead-lettered
 - A separate RabbitMQ user per service, and named connections so the dashboard shows which service is which
