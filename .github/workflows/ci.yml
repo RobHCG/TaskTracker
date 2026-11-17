@@ -5,6 +5,14 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  checks: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -15,7 +23,28 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet restore
       - run: dotnet build --no-restore
-      - run: dotnet test --no-build --filter "TestCategory!=EndToEnd"
+      - run: >
+          dotnet test --no-build --filter "TestCategory!=EndToEnd"
+          --logger trx --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+      - if: "!cancelled()"
+        uses: dorny/test-reporter@v1
+        with:
+          name: Test results
+          path: TestResults/*.trx
+          reporter: dotnet-trx
+      - if: "!cancelled()"
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coverage-report -reporttypes:"MarkdownSummaryGithub;Html"
+          cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+      - if: "!cancelled()"
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-reports
+          path: |
+            TestResults
+            coverage-report
 
   end-to-end:
     needs: build-and-test
