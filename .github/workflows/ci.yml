@@ -28,7 +28,7 @@ jobs:
           --logger trx --collect:"XPlat Code Coverage"
           --results-directory TestResults
       - if: "!cancelled()"
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         with:
           name: Test results
           path: TestResults/*.trx
