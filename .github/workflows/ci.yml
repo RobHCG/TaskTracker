@@ -39,7 +39,7 @@ jobs:
           reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coverage-report -reporttypes:"MarkdownSummaryGithub;Html"
           cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
       - if: "!cancelled()"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-and-coverage-reports
           path: |
