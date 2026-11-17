@@ -55,7 +55,13 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: docker compose up --build -d --wait
-      - run: dotnet test EndToEnd.Tests
+      - run: dotnet test EndToEnd.Tests --logger trx --results-directory TestResults
+      - if: "!cancelled()"
+        uses: dorny/test-reporter@v1
+        with:
+          name: End-to-end results
+          path: TestResults/*.trx
+          reporter: dotnet-trx
       - if: failure()
         run: docker compose logs
       - if: always()
